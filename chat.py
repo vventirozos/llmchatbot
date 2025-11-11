@@ -32,7 +32,7 @@ class ColorFormatter(logging.Formatter):
     
     LEVEL_COLORS = {
         logging.INFO: GRAY,
-        logging.WARNING: YELLOW,
+        logging.WARNING: GRAY,
         logging.ERROR: RED,
         logging.CRITICAL: RED,
     }
@@ -112,12 +112,13 @@ class ChatManager:
     def _print_help(self):
         """Display available commands."""
         help_text = f"""
-{WHITE}Available Commands:{RESET}
-{WHITE}/help{RESET}     - Show this help message
-{WHITE}/clear{RESET}    - Clear conversation history
-{WHITE}/save{RESET}     - Save conversation to file
-{WHITE}/exit{RESET}     - Exit the application
-{WHITE}Ctrl+C{RESET}    - Interrupt current operation
+{WHITE}
+Available Commands:
+/help     - Show this help message
+/clear    - Clear conversation history
+/save     - Save conversation to file
+/exit     - Exit the application
+Ctrl+C    - Interrupt current operation{RESET}
         """
         print(help_text)
 
@@ -258,7 +259,7 @@ class ChatManager:
                     user_input = await asyncio.to_thread(input, f"{RED}User >{RESET} ")
                     user_input = user_input.strip()
                 except (KeyboardInterrupt, EOFError):
-                    print(f"\n{YELLOW}Use /exit to quit gracefully.{RESET}")
+                    print(f"\n{WHITE}Use /exit to quit gracefully.{RESET}")
                     continue
 
                 if not user_input:
@@ -329,7 +330,7 @@ def main():
         asyncio.run(chat_manager.run())
     except KeyboardInterrupt:
         # Handle Ctrl+C during startup or shutdown
-        print(f"\n{YELLOW}Shutting down gracefully...{RESET}")
+        print(f"\n{WHITE}Shutting down gracefully...{RESET}")
         if chat_manager:
             chat_manager.running = False
     except ValueError as e:
@@ -342,7 +343,7 @@ def main():
         sys.exit(1)
     finally:
         # Ensure we exit cleanly
-        print(f"{GRAY}Goodbye!{RESET}")
+        print(f"{WHITE}Goodbye!{RESET}")
 
 
 if __name__ == "__main__":
