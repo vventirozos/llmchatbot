@@ -11,7 +11,7 @@ WHITE = '\033[37m'
 RESET = '\033[0m'
 
 # Model configuration
-DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", 'qwen3:8b')
+DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", 'granite4:latest')
 
 # Environment variables
 def check_env_vars():

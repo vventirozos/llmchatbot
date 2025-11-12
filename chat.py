@@ -177,12 +177,17 @@ Ctrl+C    - Interrupt current operation{RESET}
         """Streams response and handles tool calls correctly."""
         buffer = ""
         tool_calls_by_index = {}
+        last_response_metadata = {} # Initialize to capture metadata
 
         logger.info("Starting response stream")
         async for chunk in self.llm_with_tools.astream(self.messages):
             if chunk.content:
                 print(f"{YELLOW}{chunk.content}{RESET}", end="", flush=True)
                 buffer += chunk.content
+
+            # Capture response metadata from the last chunk
+            if chunk.response_metadata:
+                last_response_metadata = chunk.response_metadata
 
             # Properly handle tool call chunks
             if hasattr(chunk, 'tool_call_chunks') and chunk.tool_call_chunks:
@@ -243,6 +248,7 @@ Ctrl+C    - Interrupt current operation{RESET}
 
         # Create the final message
         ai_msg = AIMessage(content=buffer, tool_calls=tool_calls)
+        ai_msg.response_metadata = last_response_metadata # Attach metadata
 
         self.messages.append(ai_msg)
         logger.info("Response stream completed")
