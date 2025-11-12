@@ -1,73 +1,98 @@
-# CLI Chat with Ollama and LangChain
+# AI Chatbot
 
-This is a command-line chat application that leverages local language models via Ollama and LangChain. It provides a persistent, interactive chat session with tool-use capabilities, conversation management, and performance monitoring.
+This project is a command-line-based AI chatbot that leverages local large language models (LLMs) through Ollama. It is designed to be an extensible assistant, capable of performing a variety of tasks by using a suite of integrated tools. The chatbot features streaming responses, conversation management, and a strong emphasis on security.
 
 ## Features
 
-*   **Interactive Chat:** A terminal-based interface for conversing with an LLM.
-*   **Ollama Integration:** Connects to any model served by a local Ollama instance.
-*   **Tool Usage:** The model can invoke local tools to perform actions. The response from the tools is then fed back to the model.
-*   **Streaming Responses:** AI responses are streamed token-by-token for a real-time experience.
-*   **Conversation Management:**
-    *   Maintains conversation history within a session.
-    *   Automatically trims long conversations to manage token limits.
-    *   Saves conversations to Markdown files.
-    *   Clears the current session's history.
-*   **Performance Metrics:** Displays token generation speed (`tokens_per_second`), evaluation duration, and other performance data after each response.
-*   **Secure and Local:** Runs entirely on your local machine, ensuring privacy.
+- **Interactive CLI:** A user-friendly command-line interface for seamless interaction with the AI.
+- **Ollama Integration:** Natively supports any model served by Ollama, allowing for flexibility and local execution.
+- **Streaming Responses:** AI responses are streamed token-by-token for a real-time experience.
+- **Rich Toolset:** The AI can autonomously use the following tools to perform complex tasks:
+  - **`search`**: Performs web searches using the Tavily API.
+  - **`wikipedia`**: Queries Wikipedia for detailed articles.
+  - **`web_fetch`**: Fetches and reads the content of any given URL.
+  - **`sql_query`**: Executes **read-only** SQL queries against a connected PostgreSQL database.
+  - **`python_interpreter`**: Executes Python code in a sandboxed environment to perform calculations, data manipulation, and more.
+  - **`read_file` / `write_file`**: Reads from and writes to a designated secure workspace directory.
+- **Conversation Management:**
+  - **Save History:** Save the current conversation to a timestamped Markdown file.
+  - **Clear History:** Reset the conversation with a simple command.
+  - **Context Trimming:** Automatically trims the conversation history to stay within token and message limits, ensuring long conversations remain efficient.
+- **Security First:**
+  - **Sandboxed Workspace:** File operations are restricted to a specific `workspace` directory to prevent unauthorized file access.
+  - **Restricted Python Execution:** The Python interpreter blocks potentially dangerous modules and functions (`os`, `subprocess`, `open`, etc.).
+  - **Read-Only Database Access:** The SQL tool is hardcoded to only allow `SELECT` queries, preventing any data modification or deletion.
 
-## Requirements
+## Getting Started
 
-*   Python 3.8+
-*   An active Ollama instance with a downloaded model (e.g., Llama 3, Mistral).
-*   A `requirements.txt` file with necessary packages.
+### Prerequisites
 
-## Installation
+- Python 3.8+
+- [Ollama](https://ollama.com/) installed and running.
+- A running PostgreSQL database instance.
 
-1.  Ensure you have a running Ollama instance.
-2.  Install the required Python packages:
-    ```bash
-    pip install -r requirements.txt
-    ```
+### Installation
 
-## Configuration
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd llmchatbot
+   ```
 
-The application is configured via a `.env` file. Create a `.env` file in the root of the project. The following variables are used:
+2. **Install the required Python packages:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-```env
-# The base URL for the Ollama API
-OLLAMA_HOST="http://localhost:11434"
+3. **Configure Environment Variables:**
+   Create a file named `.env` in the root of the project directory and add the following variables.
 
-# The maximum number of messages to keep in the conversation history
-MAX_CONVO_MESSAGES=20
+   ```env
+   # Required
+   TAVILY_API_KEY="your_tavily_api_key"
+   DATABASE_URL="postgresql://user:password@host:port/database"
 
-# The maximum number of tokens to allow in the conversation history
-MAX_CONVO_TOKENS=8000
-```
+   # Optional
+   DEFAULT_MODEL="granite4:latest" # The default Ollama model to use
+   ALLOWED_WORK_DIR="./workspace"    # The secure directory for file I/O tools
+   MAX_CONVO_MESSAGES="20"           # Max messages to keep in history
+   ## suggested is 65k
+   MAX_CONVO_TOKENS="8000"           # Max tokens to keep in history
+   USER_AGENT="YourCustomUserAgent/1.0" # User agent for web requests
+   # SYSTEM_PROMPT="Your custom system prompt. The current date is {datetime}."
+   ```
 
-The script also expects a `config.py` file to provide a system prompt and color codes, and a `tools.py` file to define the available tools for the model.
+   - **`TAVILY_API_KEY`**: Required for the `search` tool. Get a free key from [Tavily AI](https://tavily.com/).
+   - **`DATABASE_URL`**: The connection string for your PostgreSQL database.
 
 ## Usage
 
-Run the chat application from your terminal. You can specify which Ollama model to use with the `--model` flag.
+1. **Start the Chatbot:**
+   Run the `chat.py` script from your terminal.
+   ```bash
+   python chat.py
+   ```
 
-```bash
-python chat.py --model <your-model-name>
-```
+2. **Specify a Different Model:**
+   You can override the default model (granite4) by using the `--model` command-line argument.
+   ```bash
+   python chat.py --model "llama3:latest"
+   ```
 
-For example, to use the `llama3:8b` model:
-```bash
-python chat.py --model llama3:8b
-```
+3. **Interact with the Chatbot:**
+   Once started, you can type your messages directly. To use a command, type one of the following in the prompt:
 
-If no model is specified, it will use the default model defined in the script (`gemma:2b`).
+   - `/help`: Shows the list of available commands.
+   - `/save`: Saves the current conversation to the `conversations` directory.
+   - `/clear`: Clears the current session's conversation history.
+   - `/exit`: Exits the application gracefully.
+   - `Ctrl+C`: Interrupts the current AI response generation.
 
-## In-Chat Commands
+## How It Works
 
-Once the chat is running, you can use these commands:
+The application is built around the `langchain` ecosystem.
 
-*   `/help`: Show the list of available commands.
-*   `/clear`: Clear the current conversation history.
-*   `/save`: Save the current conversation to a timestamped Markdown file in the `conversations/` directory.
-*   `/exit`: Exit the chat application.
-*   `Ctrl+C`: Interrupt the current AI response generation or wait for user input.
+- **`chat.py`**: The main entry point that manages the chat loop, handles user input, and orchestrates the flow between the user, the model, and the tools.
+- **`tools.py`**: Defines the suite of tools that the LLM can use. Each tool is decorated with `@tool` and includes robust error handling and security constraints.
+- **`config.py`**: Manages configuration, including environment variables, color codes for the CLI, and the system prompt that guides the AI's behavior.
+- **`langchain-ollama`**: Provides the connection to the locally running Ollama instance. The model is bound to the tools, allowing it to decide when and how to use them to fulfill a user's request. When the model decides to use a tool, the application executes it, sends the result back to the model, and then streams the final, synthesized answer.
