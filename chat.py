@@ -11,6 +11,17 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
+# Check for RAG dependencies before other imports
+try:
+    import faiss
+    from langchain_community.vectorstores import FAISS
+    from langchain_community.document_loaders import DirectoryLoader
+except ImportError:
+    print("\n[ERROR] RAG dependencies are not installed. Please run:")
+    print("pip install faiss-cpu langchain-community\n")
+    sys.exit(1)
+
+
 from dotenv import load_dotenv
 from langchain_ollama import ChatOllama
 from langchain_core.messages import (
@@ -224,17 +235,21 @@ Ctrl+C    - Interrupt current operation{RESET}
                     try:
                         parsed_args = json.loads(raw_args)
                     except json.JSONDecodeError as e:
-                        # Handle "Extra data" error by extracting first JSON object
-                        if "Extra data" in str(e):
-                            match = re.search(r'\{.*?\}', raw_args, re.DOTALL)
-                            if match:
-                                json_str = match.group(0)
-                                logger.warning(f"Extracted valid JSON from malformed args: {json_str}")
+                        # Attempt to clean and re-parse by isolating the JSON object
+                        start_idx = raw_args.find('{')
+                        end_idx = raw_args.rfind('}')
+                        if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
+                            json_str = raw_args[start_idx : end_idx + 1]
+                            try:
                                 parsed_args = json.loads(json_str)
-                            else:
-                                raise
+                                logger.warning(f"Extracted and parsed JSON from malformed args: {json_str}")
+                            except json.JSONDecodeError:
+                                # If even after extraction it's malformed, log and re-raise
+                                logger.error(f"Failed to parse extracted JSON from malformed args: {json_str}")
+                                raise # Re-raise to be caught by the outer except block
                         else:
-                            raise
+                            # If no valid JSON structure found, re-raise original error
+                            raise # Re-raise to be caught by the outer except block
                 else:
                     parsed_args = {}
 
@@ -354,4 +369,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    

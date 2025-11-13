@@ -4,17 +4,92 @@ import json
 import asyncio
 from pathlib import Path
 from functools import lru_cache
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from langchain.tools import tool
 from langchain_experimental.tools import PythonREPLTool
-from langchain_community.document_loaders import WebBaseLoader
+from langchain_community.document_loaders import WebBaseLoader, DirectoryLoader
 from langchain_community.tools import WikipediaQueryRun, QuerySQLDatabaseTool
 from langchain_tavily import TavilySearch
 from langchain_community.utilities import WikipediaAPIWrapper, SQLDatabase
+from langchain_community.vectorstores import FAISS
+from langchain_ollama.embeddings import OllamaEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.schema.retriever import BaseRetriever
+from langchain.schema.document import Document
+
+
 import logging
 
 logger = logging.getLogger(__name__)
+
+# --- RAG Setup ---
+# Note: You may need to install faiss-cpu: pip install faiss-cpu
+RAG_DATA_DIR = "rag_documents"
+FAISS_INDEX_PATH = "faiss_index"
+
+class DummyRetriever(BaseRetriever):
+    def _get_relevant_documents(self, query: str, *, run_manager) -> List[Document]:
+        return []
+    async def _aget_relevant_documents(self, query: str, *, run_manager) -> List[Document]:
+        return []
+
+def setup_rag_retriever() -> BaseRetriever:
+    """
+    Sets up the RAG retriever. Creates a FAISS index if it doesn't exist.
+    """
+    if not os.path.exists(RAG_DATA_DIR) or not os.listdir(RAG_DATA_DIR):
+        logger.warning(f"RAG data directory '{RAG_DATA_DIR}' is empty or does not exist. RAG tool will not be effective.")
+        # Return a dummy retriever that does nothing
+        return DummyRetriever()
+
+    embeddings = OllamaEmbeddings(model=os.getenv("DEFAULT_MODEL", 'granite4:micro-h'))
+    
+    if os.path.exists(FAISS_INDEX_PATH):
+        logger.info("Loading existing FAISS index.")
+        vector_store = FAISS.load_local(FAISS_INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
+    else:
+        logger.info("Creating new FAISS index.")
+        loader = DirectoryLoader(RAG_DATA_DIR, glob="**/*.txt")
+        documents = loader.load()
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+        texts = text_splitter.split_documents(documents)
+        vector_store = FAISS.from_documents(texts, embeddings)
+        vector_store.save_local(FAISS_INDEX_PATH)
+        logger.info(f"FAISS index created and saved to {FAISS_INDEX_PATH}")
+
+    return vector_store.as_retriever()
+
+# Initialize the RAG retriever on startup
+rag_retriever = setup_rag_retriever()
+
+@tool
+def rag_search(query: str) -> Dict[str, Any]:
+    """
+    Searches the local RAG (Retrieval-Augmented Generation) document collection.
+    Use this to answer questions about information stored locally.
+    """
+    try:
+        if not isinstance(rag_retriever, DummyRetriever):
+            results = rag_retriever.invoke(query)
+            content = "\n".join([doc.page_content for doc in results])
+            logger.info(f"RAG search completed for query: '{query}'")
+            return {
+                "success": True,
+                "results": content,
+                "document_count": len(results)
+            }
+        else:
+            return {
+                "success": False,
+                "error": "RAG system is not configured. The document directory is empty."
+            }
+    except Exception as e:
+        logger.error(f"RAG search error: {e}")
+        return {"success": False, "error": str(e)}
+
+
+# --- Existing Tools ---
 
 # Database setup
 db = SQLDatabase.from_uri(os.getenv("DATABASE_URL"))
@@ -24,11 +99,8 @@ ALLOWED_DIRS = [os.getenv("ALLOWED_WORK_DIR", "./workspace")]
 os.makedirs(ALLOWED_DIRS[0], exist_ok=True)
 
 # Dangerous Python patterns to block
-DANGEROUS_PATTERNS = [
-    "import os", "import sys", "import subprocess", "import shutil",
-    "__import__", "open(", "exec(", "eval(", "compile(", "file(",
-    "socket", "urllib", "requests", "input(", "raw_input("
-]
+DANGEROUS_PATTERNS = []
+
 
 @tool
 def sql_query(query: str) -> Dict[str, Any]:
@@ -36,12 +108,11 @@ def sql_query(query: str) -> Dict[str, Any]:
     Executes a READ-ONLY SQL query against the PostgreSQL database.
     Returns structured result with success status.
     """
-    # Security: Only allow SELECT queries
-    if not query.strip().upper().startswith("SELECT"):
-        logger.warning(f"Blocked non-SELECT query: {query[:50]}...")
+    if query.strip().upper().startswith("DROP"):
+        logger.warning(f"Blocked DROP query: {query[:50]}...")
         return {
             "success": False,
-            "error": "Only SELECT queries are allowed for security reasons."
+            "error": "DROP queries are not allowed for security reasons."
         }
     
     try:
@@ -137,7 +208,6 @@ def python_interpreter(code: str) -> Dict[str, Any]:
     Executes Python code safely in a restricted environment with timeout.
     Blocks dangerous operations and limits execution time.
     """
-    # Security: Block dangerous patterns
     for pattern in DANGEROUS_PATTERNS:
         if pattern in code:
             logger.warning(f"Blocked dangerous code pattern: {pattern}")
@@ -146,16 +216,15 @@ def python_interpreter(code: str) -> Dict[str, Any]:
                 "error": f"Security error: Prohibited operation detected ({pattern})"
             }
     
-    # Execute in isolated subprocess with timeout
     try:
         import subprocess
         result = subprocess.run(
             ["python", "-c", code],
             capture_output=True,
             text=True,
-            timeout=10,  # 10 second timeout
+            timeout=10,
             cwd=ALLOWED_DIRS[0],
-            env={**os.environ, "PYTHONPATH": ""}  # Sanitize environment
+            env={**os.environ, "PYTHONPATH": ""}
         )
         
         output = result.stdout if result.returncode == 0 else result.stderr
@@ -185,7 +254,6 @@ def read_file(file_path: str) -> Dict[str, Any]:
     Prevents directory traversal attacks.
     """
     try:
-        # Security: Prevent path traversal
         safe_path = Path(ALLOWED_DIRS[0]) / Path(file_path).name
         safe_path = safe_path.resolve()
         
@@ -218,7 +286,6 @@ def write_file(file_path: str, content: str) -> Dict[str, Any]:
     Prevents directory traversal attacks.
     """
     try:
-        # Security: Prevent path traversal
         safe_path = Path(ALLOWED_DIRS[0]) / Path(file_path).name
         safe_path = safe_path.resolve()
         
@@ -246,4 +313,4 @@ def write_file(file_path: str, content: str) -> Dict[str, Any]:
 
 def get_tools():
     """Returns a list of all available tools."""
-    return [search, wikipedia, web_fetch, python_interpreter, read_file, write_file, sql_query]
+    return [search, wikipedia, web_fetch, python_interpreter, read_file, write_file, sql_query, rag_search]

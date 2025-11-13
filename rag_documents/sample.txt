@@ -1,0 +1,5 @@
+This is a sample document for the RAG agent.
+LangChain is a framework for developing applications powered by language models.
+The RAG agent will use this document to answer questions.
+Gemini is a family of multimodal models from Google.
+Ollama allows you to run large language models locally.

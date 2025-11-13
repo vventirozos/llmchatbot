@@ -11,8 +11,12 @@ WHITE = '\033[37m'
 RESET = '\033[0m'
 
 # Model configuration
-#DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", 'granite4:tiny-h')
-DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", 'granite4:micro-h')
+
+# micro-h - 3B
+#DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", 'granite4:micro-h')
+# tiny-h - 7B
+DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", 'granite4:tiny-h')
+#DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", 'granite4:latest')
 # Environment variables
 def check_env_vars():
     """Check for required environment variables and set defaults."""
