@@ -1,116 +1,98 @@
-# CLI Chat with Ollama and LangChain Tools
+# AI Chatbot
 
-This project is a Python-based command-line interface (CLI) for interacting with large language models (LLMs) through Ollama. It leverages the `langchain` library to provide a powerful and extensible toolset, enabling the model to perform actions like web searches, database queries, and more.
+This project is a command-line-based AI chatbot that leverages local large language models (LLMs) through Ollama. It is designed to be an extensible assistant, capable of performing a variety of tasks by using a suite of integrated tools. The chatbot features streaming responses, conversation management, and a strong emphasis on security.
 
 ## Features
 
-*   **Interactive Chat:** A familiar CLI-based chat experience.
-*   **Ollama Integration:** Connects to any model served by Ollama.
-*   **Extensible Toolset:** Easily add new tools using `langchain`.
-*   **Streaming Responses:** See the model's response as it's being generated.
-*   **Conversation Management:** Save, clear, or exit conversations with simple commands.
-*   **Retrieval-Augmented Generation (RAG):** Search local documents to augment model responses.
-*   **Secure by Default:** Tools like the Python interpreter and file I/O are restricted to a designated workspace directory.
+- **Interactive CLI:** A user-friendly command-line interface for seamless interaction with the AI.
+- **Ollama Integration:** Natively supports any model served by Ollama, allowing for flexibility and local execution.
+- **Streaming Responses:** AI responses are streamed token-by-token for a real-time experience.
+- **Rich Toolset:** The AI can autonomously use the following tools to perform complex tasks:
+  - **`search`**: Performs web searches using the Tavily API.
+  - **`wikipedia`**: Queries Wikipedia for detailed articles.
+  - **`web_fetch`**: Fetches and reads the content of any given URL.
+  - **`sql_query`**: Executes **read-only** SQL queries against a connected PostgreSQL database.
+  - **`python_interpreter`**: Executes Python code in a sandboxed environment to perform calculations, data manipulation, and more.
+  - **`read_file` / `write_file`**: Reads from and writes to a designated secure workspace directory.
+- **Conversation Management:**
+  - **Save History:** Save the current conversation to a timestamped Markdown file.
+  - **Clear History:** Reset the conversation with a simple command.
+  - **Context Trimming:** Automatically trims the conversation history to stay within token and message limits, ensuring long conversations remain efficient.
+- **Security First:**
+  - **Sandboxed Workspace:** File operations are restricted to a specific `workspace` directory to prevent unauthorized file access.
+  - **Restricted Python Execution:** The Python interpreter blocks potentially dangerous modules and functions (`os`, `subprocess`, `open`, etc.).
+  - **Read-Only Database Access:** The SQL tool is hardcoded to only allow `SELECT` queries, preventing any data modification or deletion.
 
-## Requirements
+## Getting Started
 
-The project requires Python 3.x and the dependencies listed in `requirements.txt`.
+### Prerequisites
 
-Key dependencies include:
-*   `langchain` and its ecosystem (`langchain-ollama`, `langchain-community`, etc.)
-*   `ollama`
-*   `faiss-cpu` for RAG
-*   `SQLAlchemy` and `psycopg2-binary` for database interaction
-*   `tavily-python` for web search
+- Python 3.8+
+- [Ollama](https://ollama.com/) installed and running.
+- A running PostgreSQL database instance.
 
-## Setup and Installation
+### Installation
 
-1.  **Clone the repository:**
-    ```bash
-    git clone <your-repo-url>
-    cd <your-repo-name>
-    ```
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd llmchatbot
+   ```
 
-2.  **Create and activate a virtual environment:**
-    ```bash
-    python -m venv venv
-    source venv/bin/activate
-    # On Windows, use: venv\Scripts\activate
-    ```
+2. **Install the required Python packages:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-3.  **Install dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
+3. **Configure Environment Variables:**
+   Create a file named `.env` in the root of the project directory and add the following variables.
 
-4.  **Configure environment variables:**
-    Create a `.env` file by copying the example file:
-    ```bash
-    cp .env.example .env
-    ```
-    Now, edit the `.env` file and add your specific credentials and settings.
+   ```env
+   # Required
+   TAVILY_API_KEY="your_tavily_api_key"
+   DATABASE_URL="postgresql://user:password@host:port/database"
 
-    **Required variables:**
-    *   `TAVILY_API_KEY`: Your API key for Tavily search.
-    *   `DATABASE_URL`: The connection string for your PostgreSQL database (e.g., `postgresql://user:password@host:port/dbname`).
+   # Optional
+   DEFAULT_MODEL="granite4:latest" # The default Ollama model to use
+   ALLOWED_WORK_DIR="./workspace"    # The secure directory for file I/O tools
+   MAX_CONVO_MESSAGES="20"           # Max messages to keep in history
+   ## suggested is 65k
+   MAX_CONVO_TOKENS="8000"           # Max tokens to keep in history
+   USER_AGENT="YourCustomUserAgent/1.0" # User agent for web requests
+   # SYSTEM_PROMPT="Your custom system prompt. The current date is {datetime}."
+   ```
 
-5.  **Set up RAG (Optional):**
-    To use the Retrieval-Augmented Generation (RAG) feature, place your text documents (`.txt` files) into the `rag_documents` directory. The first time you run the application, it will create a FAISS vector index from these documents.
+   - **`TAVILY_API_KEY`**: Required for the `search` tool. Get a free key from [Tavily AI](https://tavily.com/).
+   - **`DATABASE_URL`**: The connection string for your PostgreSQL database.
 
 ## Usage
 
-To start the chat application, run:
-```bash
-python chat.py
-```
+1. **Start the Chatbot:**
+   Run the `chat.py` script from your terminal.
+   ```bash
+   python chat.py
+   ```
 
-You can also specify a different Ollama model to use:
-```bash
-python chat.py --model <model-name>
-```
-(e.g., `python chat.py --model granite4:latest`)
+2. **Specify a Different Model:**
+   You can override the default model (granite4) by using the `--model` command-line argument.
+   ```bash
+   python chat.py --model "llama3:latest"
+   ```
 
-### In-Chat Commands
+3. **Interact with the Chatbot:**
+   Once started, you can type your messages directly. To use a command, type one of the following in the prompt:
 
-*   `/help`: Show the list of available commands.
-*   `/clear`: Clear the current conversation history.
-*   `/save`: Save the current conversation to a Markdown file in the `conversations` directory.
-*   `/exit`: Exit the application.
+   - `/help`: Shows the list of available commands.
+   - `/save`: Saves the current conversation to the `conversations` directory.
+   - `/clear`: Clears the current session's conversation history.
+   - `/exit`: Exits the application gracefully.
+   - `Ctrl+C`: Interrupts the current AI response generation.
 
-## Configuration
+## How It Works
 
-The application is configured via environment variables in the `.env` file:
+The application is built around the `langchain` ecosystem.
 
-*   `DEFAULT_MODEL`: The default Ollama model to use (e.g., `granite4:tiny-h`).
-*   `TAVILY_API_KEY`: API key for Tavily web search.
-*   `DATABASE_URL`: PostgreSQL database connection URL.
-*   `SYSTEM_PROMPT`: An optional custom system prompt for the AI.
-*   `ALLOWED_WORK_DIR`: The directory where tools like `read_file`, `write_file`, and `python_interpreter` are allowed to operate. Defaults to `./workspace`.
-*   `MAX_CONVO_MESSAGES`: The maximum number of messages to keep in the conversation history. Defaults to `20`.
-
-## Available Tools
-
-The AI assistant can use the following tools:
-
-*   `search`: Searches the web using Tavily.
-*   `wikipedia`: Searches Wikipedia.
-*   `web_fetch`: Fetches the content of a URL.
-*   `sql_query`: Executes a read-only SQL query against the configured database.
-*   `python_interpreter`: Executes Python code in a restricted environment.
-*   `read_file`: Reads a file from the workspace directory.
-*   `write_file`: Writes a file to the workspace directory.
-*   `rag_search`: Searches the local document collection.
-
-## Project Structure
-
-```
-.
-├── chat.py               # Main application logic
-├── config.py             # Configuration and constants
-├── tools.py              # Tool definitions for langchain
-├── requirements.txt      # Python dependencies
-├── workspace/            # Safe working directory for tools
-├── rag_documents/        # Source documents for RAG
-├── faiss_index/          # Stored FAISS index for RAG
-└── conversations/        # Saved conversation histories
-```
+- **`chat.py`**: The main entry point that manages the chat loop, handles user input, and orchestrates the flow between the user, the model, and the tools.
+- **`tools.py`**: Defines the suite of tools that the LLM can use. Each tool is decorated with `@tool` and includes robust error handling and security constraints.
+- **`config.py`**: Manages configuration, including environment variables, color codes for the CLI, and the system prompt that guides the AI's behavior.
+- **`langchain-ollama`**: Provides the connection to the locally running Ollama instance. The model is bound to the tools, allowing it to decide when and how to use them to fulfill a user's request. When the model decides to use a tool, the application executes it, sends the result back to the model, and then streams the final, synthesized answer.
