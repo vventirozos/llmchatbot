@@ -89,13 +89,14 @@ class ChatManager:
         if not response_metadata:
             return
 
+
         metrics = {
-            "total_duration_ms": response_metadata.get('total_duration', 0) / 1_000_000,
-            "load_duration_ms": response_metadata.get('load_duration', 0) / 1_000_000,
+            "total_duration_ms": (response_metadata.get('total_duration', 0) or 0) / 1_000_000,
+            "load_duration_ms": (response_metadata.get('load_duration', 0) or 0) / 1_000_000,
             "prompt_eval_count": response_metadata.get('prompt_eval_count', 0),
-            "prompt_eval_duration_ms": response_metadata.get('prompt_eval_duration', 0) / 1_000_000,
+            "prompt_eval_duration_ms": (response_metadata.get('prompt_eval_duration', 0) or 0) / 1_000_000,
             "eval_count": response_metadata.get('eval_count', 0),
-            "eval_duration_ms": response_metadata.get('eval_duration', 0) / 1_000_000,
+            "eval_duration_ms": (response_metadata.get('eval_duration', 0) or 0) / 1_000_000,
         }
         if metrics["eval_count"] > 0 and metrics["eval_duration_ms"] > 0:
             metrics["tokens_per_second"] = metrics["eval_count"] / (metrics["eval_duration_ms"] / 1000)

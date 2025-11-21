@@ -12,8 +12,13 @@ RESET = '\033[0m'
 
 # Model configuration
 
+# Cloud Models
+#DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", 'qwen3-coder:480b-cloud')
+DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", 'minimax-m2:cloud')
+
+## Local Models 
 # micro-h - 3B
-DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", 'granite4:micro-h')
+#DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", 'granite4:micro-h')
 # tiny-h - 7B
 #DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", 'granite4:tiny-h')
 #DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", 'granite4:latest')
